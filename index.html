@@ -30,7 +30,6 @@
       text-align: center;
     }
 
-    /* ─── Book container ─── */
     #book-area {
       position: relative;
       display: flex;
@@ -41,8 +40,6 @@
     #flipbook {
       box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
       border-radius: 3px;
-      transform: scaleX(-1);
-      visibility: hidden;
     }
 
     .page-content {
@@ -63,26 +60,12 @@
       -webkit-user-drag: none;
     }
 
-    /* ─── Click zones for page navigation ─── */
-    .nav-zone {
-      position: absolute;
-      top: 0;
+    .blank-page {
+      background: #f5f0e8;
+      width: 100%;
       height: 100%;
-      width: 25%;
-      cursor: pointer;
-      z-index: 10;
-    }
-    .nav-zone-left {
-      left: 0;
-    }
-    .nav-zone-right {
-      right: 0;
-    }
-    .nav-zone:hover {
-      background: rgba(255,255,255,0.02);
     }
 
-    /* ─── Controls ─── */
     .controls {
       display: flex;
       align-items: center;
@@ -129,7 +112,6 @@
       margin-top: 6px;
     }
 
-    /* ─── Shadow ─── */
     .book-shadow {
       width: 80%;
       max-width: 500px;
@@ -138,7 +120,6 @@
       background: radial-gradient(ellipse, rgba(0,0,0,0.3) 0%, transparent 70%);
     }
 
-    /* ─── Loading ─── */
     #loading {
       position: fixed;
       inset: 0;
@@ -178,9 +159,9 @@
 <div class="book-shadow"></div>
 
 <div class="controls">
-  <button id="btn-prev" aria-label="Previous page">&#9664;</button>
+  <button id="btn-prev" aria-label="Previous page">&#9654;</button>
   <span class="page-info" id="page-info"></span>
-  <button id="btn-next" aria-label="Next page">&#9654;</button>
+  <button id="btn-next" aria-label="Next page">&#9664;</button>
 </div>
 <div class="hint">&#8592; &#8594; &nbsp; לדפדוף</div>
 
@@ -189,33 +170,49 @@
 (function() {
   'use strict';
 
-  const TOTAL = 31;
-  const PW = 850, PH = 1200;
+  var TOTAL = 31;
+  var PW = 850, PH = 1200;
+
+  // Pages are loaded in REVERSE order so that StPageFlip's native
+  // flipPrev (left-to-right) becomes "next page" in Hebrew reading.
+  // A blank page is appended so the front cover lands on the RIGHT
+  // side of its spread (correct for Hebrew).
+  // Array: [page-31(back cover), page-30, ..., page-02, page-01(front cover), blank]
+  // Index:  0                    1             29        30                    31
+  // With showCover, index 0 is a single right cover, index 31 is single left cover.
+  // startPage: 30 → spread [29,30] = [page-02 LEFT, page-01 RIGHT]
+
+  var ARR_LEN = TOTAL + 1; // 32 (31 pages + 1 blank)
+  var START_PAGE = TOTAL - 1; // 30
 
   function pageSize() {
-    const vh = window.innerHeight - 100;
-    const vw = window.innerWidth - 16;
-    let h = Math.min(vh, 700);
-    let w = Math.round(h * (PW / PH));
-    // Spread shows two pages side by side — ensure 2*w fits viewport
+    var vh = window.innerHeight - 100;
+    var vw = window.innerWidth - 16;
+    var h = Math.min(vh, 700);
+    var w = Math.round(h * (PW / PH));
     if (w * 2 > vw) {
       w = Math.floor(vw / 2);
       h = Math.round(w * (PH / PW));
     }
-    return { w, h };
+    return { w: w, h: h };
+  }
+
+  // Convert array index to real page number (0 = blank/back cover)
+  function realPage(idx) {
+    if (idx >= TOTAL) return 0; // blank page
+    return TOTAL - idx;
   }
 
   function init() {
-    const { w, h } = pageSize();
-    const el = document.getElementById('flipbook');
+    var size = pageSize();
+    var el = document.getElementById('flipbook');
 
-    // Container must be sized for the full spread (2 pages wide)
-    el.style.width = (w * 2) + 'px';
-    el.style.height = h + 'px';
+    el.style.width = (size.w * 2) + 'px';
+    el.style.height = size.h + 'px';
 
-    const book = new St.PageFlip(el, {
-      width: w,
-      height: h,
+    var book = new St.PageFlip(el, {
+      width: size.w,
+      height: size.h,
       size: 'fixed',
       showCover: true,
       maxShadowOpacity: 0.35,
@@ -226,109 +223,120 @@
       flippingTime: 900,
       drawShadow: true,
       usePortrait: false,
-      startPage: 0,
+      startPage: START_PAGE,
       autoSize: true,
     });
 
-    // Create page elements
-    const pages = [];
-    for (let i = 1; i <= TOTAL; i++) {
-      const div = document.createElement('div');
+    // Build pages in reverse order + blank at the end
+    var pages = [];
+    for (var i = TOTAL; i >= 1; i--) {
+      var div = document.createElement('div');
       div.className = 'page-content';
-      const img = document.createElement('img');
+      var img = document.createElement('img');
       img.src = 'pages/page-' + String(i).padStart(2, '0') + '.jpg';
       img.alt = 'Page ' + i;
-      if (i > 3) img.loading = 'lazy';
+      img.loading = (i <= 2 || i >= TOTAL - 1) ? 'eager' : 'lazy';
       div.appendChild(img);
       pages.push(div);
     }
+    // Blank page at the end (inside front cover)
+    var blank = document.createElement('div');
+    blank.className = 'page-content';
+    var blankInner = document.createElement('div');
+    blankInner.className = 'blank-page';
+    blank.appendChild(blankInner);
+    pages.push(blank);
 
     book.loadFromHTML(pages);
-    el.style.visibility = 'visible';
 
-    // ─── Loading ───
-    const firstImg = pages[0].querySelector('img');
+    // Loading
+    var coverImg = pages[TOTAL - 1].querySelector('img'); // page-01
     function loaded() {
       document.getElementById('loading').classList.add('done');
     }
-    if (firstImg.complete) loaded();
-    else firstImg.addEventListener('load', loaded);
+    if (coverImg && coverImg.complete) loaded();
+    else if (coverImg) coverImg.addEventListener('load', loaded);
     setTimeout(loaded, 2500);
 
-    // ─── UI ───
-    const info = document.getElementById('page-info');
-    const btnP = document.getElementById('btn-prev');
-    const btnN = document.getElementById('btn-next');
+    // UI
+    var info = document.getElementById('page-info');
+    var btnP = document.getElementById('btn-prev');
+    var btnN = document.getElementById('btn-next');
 
     function ui() {
-      const p = book.getCurrentPageIndex();
-      info.textContent = (p + 1) + ' / ' + TOTAL;
-      btnP.disabled = (p <= 0);
-      btnN.disabled = (p >= TOTAL - 1);
+      var idx = book.getCurrentPageIndex();
+      var rp = realPage(idx);
+      if (rp === 0) rp = TOTAL; // on the blank/last page, show total
+      info.textContent = rp + ' / ' + TOTAL;
+      // At start of reading (high index) = disable prev
+      // At end of reading (low index) = disable next
+      btnP.disabled = (idx >= ARR_LEN - 2);
+      btnN.disabled = (idx <= 0);
     }
 
     book.on('flip', ui);
     ui();
 
-    // ─── Buttons ───
-    btnN.addEventListener('click', function() { book.flipNext(); });
-    btnP.addEventListener('click', function() { book.flipPrev(); });
+    // REVERSED: "next in reading" = flipPrev (left-to-right, Hebrew style)
+    //           "prev in reading" = flipNext (right-to-left)
+    btnN.addEventListener('click', function() { book.flipPrev(); });
+    btnP.addEventListener('click', function() { book.flipNext(); });
 
-    // ─── Keyboard (RTL: left=next, right=prev) ───
+    // Keyboard: left arrow = next in reading = flipPrev
     document.addEventListener('keydown', function(e) {
       switch (e.key) {
         case 'ArrowLeft':
         case 'ArrowDown':
           e.preventDefault();
-          book.flipNext();
+          book.flipPrev();
           break;
         case 'ArrowRight':
         case 'ArrowUp':
           e.preventDefault();
-          book.flipPrev();
+          book.flipNext();
           break;
         case ' ':
           e.preventDefault();
-          book.flipNext();
+          book.flipPrev();
           break;
       }
     });
 
-    // ─── Swipe (left swipe=next) ───
-    let tx = 0;
+    // Swipe: swipe right = next in Hebrew reading = flipPrev
+    var tx = 0;
     el.addEventListener('touchstart', function(e) {
       tx = e.touches[0].clientX;
     }, { passive: true });
     el.addEventListener('touchend', function(e) {
-      const dx = e.changedTouches[0].clientX - tx;
+      var dx = e.changedTouches[0].clientX - tx;
       if (Math.abs(dx) > 50) {
-        if (dx < 0) book.flipNext();
-        else book.flipPrev();
+        if (dx > 0) book.flipPrev();  // swipe right = next in Hebrew
+        else book.flipNext();          // swipe left = prev in Hebrew
       }
     }, { passive: true });
 
-    // ─── Resize ───
-    let rt;
+    // Resize
+    var rt;
     window.addEventListener('resize', function() {
       clearTimeout(rt);
       rt = setTimeout(function() {
-        const s = pageSize();
+        var s = pageSize();
         el.style.width = (s.w * 2) + 'px';
         el.style.height = s.h + 'px';
         book.updateFromHtml(pages);
       }, 200);
     });
 
-    // ─── Preload ahead ───
-    book.on('flip', function(e) {
-      const p = book.getCurrentPageIndex();
-      for (let i = p + 1; i <= Math.min(p + 4, TOTAL); i++) {
-        (new Image()).src = 'pages/page-' + String(i).padStart(2, '0') + '.jpg';
+    // Preload nearby pages
+    book.on('flip', function() {
+      var idx = book.getCurrentPageIndex();
+      for (var j = Math.max(0, idx - 4); j <= Math.min(TOTAL - 1, idx + 4); j++) {
+        var rr = realPage(j);
+        if (rr > 0) (new Image()).src = 'pages/page-' + String(rr).padStart(2, '0') + '.jpg';
       }
     });
   }
 
-  // Start when ready
   if (document.readyState === 'complete') init();
   else window.addEventListener('load', init);
 })();
