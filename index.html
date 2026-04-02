@@ -182,8 +182,8 @@
   // With showCover, index 0 is a single right cover, index 31 is single left cover.
   // startPage: 30 → spread [29,30] = [page-02 LEFT, page-01 RIGHT]
 
-  var ARR_LEN = TOTAL + 1; // 32 (31 pages + 1 blank)
-  var START_PAGE = TOTAL - 1; // 30
+  var ARR_LEN = TOTAL;
+  var START_PAGE = TOTAL - 1;
 
   function pageSize() {
     var vh = window.innerHeight - 100;
@@ -239,14 +239,6 @@
       div.appendChild(img);
       pages.push(div);
     }
-    // Blank page at the end (inside front cover)
-    var blank = document.createElement('div');
-    blank.className = 'page-content';
-    var blankInner = document.createElement('div');
-    blankInner.className = 'blank-page';
-    blank.appendChild(blankInner);
-    pages.push(blank);
-
     book.loadFromHTML(pages);
 
     // Loading
