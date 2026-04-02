@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>לילה עם שיר</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a1a2e;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    h1 {
+      color: #f0e6d2;
+      font-size: 1.15rem;
+      margin-bottom: 8px;
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      text-align: center;
+    }
+
+    /* ─── Book container ─── */
+    #book-area {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #flipbook {
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+      border-radius: 3px;
+    }
+
+    .page-content {
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    .page-content img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      pointer-events: none;
+      -webkit-user-drag: none;
+    }
+
+    /* ─── Click zones for page navigation ─── */
+    .nav-zone {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      width: 25%;
+      cursor: pointer;
+      z-index: 10;
+    }
+    .nav-zone-left {
+      left: 0;
+    }
+    .nav-zone-right {
+      right: 0;
+    }
+    .nav-zone:hover {
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* ─── Controls ─── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-top: 12px;
+      direction: ltr;
+    }
+
+    .controls button {
+      background: rgba(240, 230, 210, 0.08);
+      border: 1px solid rgba(240, 230, 210, 0.15);
+      color: #f0e6d2;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .controls button:hover:not(:disabled) {
+      background: rgba(240, 230, 210, 0.2);
+      border-color: rgba(240, 230, 210, 0.3);
+    }
+
+    .controls button:disabled {
+      opacity: 0.12;
+      cursor: default;
+    }
+
+    .page-info {
+      color: rgba(240, 230, 210, 0.4);
+      font-size: 0.75rem;
+      min-width: 45px;
+      text-align: center;
+    }
+
+    .hint {
+      color: rgba(240, 230, 210, 0.22);
+      font-size: 0.65rem;
+      margin-top: 6px;
+    }
+
+    /* ─── Shadow ─── */
+    .book-shadow {
+      width: 80%;
+      max-width: 500px;
+      height: 14px;
+      margin-top: 2px;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.3) 0%, transparent 70%);
+    }
+
+    /* ─── Loading ─── */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      z-index: 1000;
+      transition: opacity 0.5s;
+    }
+    #loading.done { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2px solid rgba(240,230,210,0.12);
+      border-top-color: #f0e6d2;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .load-text { color: rgba(240,230,210,0.4); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="load-text">לילה עם שיר</div>
+</div>
+
+<h1>לילה עם שיר</h1>
+
+<div id="book-area">
+  <div id="flipbook"></div>
+</div>
+<div class="book-shadow"></div>
+
+<div class="controls">
+  <button id="btn-prev" aria-label="Previous page">&#9664;</button>
+  <span class="page-info" id="page-info"></span>
+  <button id="btn-next" aria-label="Next page">&#9654;</button>
+</div>
+<div class="hint">&#8592; &#8594; &nbsp; לדפדוף</div>
+
+<script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const TOTAL = 31;
+  const PW = 850, PH = 1200;
+
+  function pageSize() {
+    const vh = window.innerHeight - 100;
+    const vw = window.innerWidth - 16;
+    let h = Math.min(vh, 700);
+    let w = Math.round(h * (PW / PH));
+    // Spread shows two pages side by side — ensure 2*w fits viewport
+    if (w * 2 > vw) {
+      w = Math.floor(vw / 2);
+      h = Math.round(w * (PH / PW));
+    }
+    return { w, h };
+  }
+
+  function init() {
+    const { w, h } = pageSize();
+    const el = document.getElementById('flipbook');
+
+    // Container must be sized for the full spread (2 pages wide)
+    el.style.width = (w * 2) + 'px';
+    el.style.height = h + 'px';
+
+    const book = new St.PageFlip(el, {
+      width: w,
+      height: h,
+      size: 'fixed',
+      showCover: true,
+      maxShadowOpacity: 0.35,
+      mobileScrollSupport: false,
+      useMouseEvents: true,
+      clickEventForward: false,
+      swipeDistance: 30,
+      flippingTime: 900,
+      drawShadow: true,
+      usePortrait: false,
+      startPage: 0,
+      autoSize: true,
+    });
+
+    // Create page elements
+    const pages = [];
+    for (let i = 1; i <= TOTAL; i++) {
+      const div = document.createElement('div');
+      div.className = 'page-content';
+      const img = document.createElement('img');
+      img.src = 'pages/page-' + String(i).padStart(2, '0') + '.jpg';
+      img.alt = 'Page ' + i;
+      if (i > 3) img.loading = 'lazy';
+      div.appendChild(img);
+      pages.push(div);
+    }
+
+    book.loadFromHTML(pages);
+
+    // ─── Loading ───
+    const firstImg = pages[0].querySelector('img');
+    function loaded() {
+      document.getElementById('loading').classList.add('done');
+    }
+    if (firstImg.complete) loaded();
+    else firstImg.addEventListener('load', loaded);
+    setTimeout(loaded, 2500);
+
+    // ─── UI ───
+    const info = document.getElementById('page-info');
+    const btnP = document.getElementById('btn-prev');
+    const btnN = document.getElementById('btn-next');
+
+    function ui() {
+      const p = book.getCurrentPageIndex();
+      info.textContent = (p + 1) + ' / ' + TOTAL;
+      btnP.disabled = (p <= 0);
+      btnN.disabled = (p >= TOTAL - 1);
+    }
+
+    book.on('flip', ui);
+    ui();
+
+    // ─── Buttons ───
+    btnN.addEventListener('click', function() { book.flipNext(); });
+    btnP.addEventListener('click', function() { book.flipPrev(); });
+
+    // ─── Keyboard (RTL: left=next, right=prev) ───
+    document.addEventListener('keydown', function(e) {
+      switch (e.key) {
+        case 'ArrowLeft':
+        case 'ArrowDown':
+          e.preventDefault();
+          book.flipNext();
+          break;
+        case 'ArrowRight':
+        case 'ArrowUp':
+          e.preventDefault();
+          book.flipPrev();
+          break;
+        case ' ':
+          e.preventDefault();
+          book.flipNext();
+          break;
+      }
+    });
+
+    // ─── Swipe (left swipe=next) ───
+    let tx = 0;
+    el.addEventListener('touchstart', function(e) {
+      tx = e.touches[0].clientX;
+    }, { passive: true });
+    el.addEventListener('touchend', function(e) {
+      const dx = e.changedTouches[0].clientX - tx;
+      if (Math.abs(dx) > 50) {
+        if (dx < 0) book.flipNext();
+        else book.flipPrev();
+      }
+    }, { passive: true });
+
+    // ─── Resize ───
+    let rt;
+    window.addEventListener('resize', function() {
+      clearTimeout(rt);
+      rt = setTimeout(function() {
+        const s = pageSize();
+        el.style.width = (s.w * 2) + 'px';
+        el.style.height = s.h + 'px';
+        book.updateFromHtml(pages);
+      }, 200);
+    });
+
+    // ─── Preload ahead ───
+    book.on('flip', function(e) {
+      const p = book.getCurrentPageIndex();
+      for (let i = p + 1; i <= Math.min(p + 4, TOTAL); i++) {
+        (new Image()).src = 'pages/page-' + String(i).padStart(2, '0') + '.jpg';
+      }
+    });
+  }
+
+  // Start when ready
+  if (document.readyState === 'complete') init();
+  else window.addEventListener('load', init);
+})();
+</script>
+</body>
+</html>
