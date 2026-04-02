@@ -177,8 +177,8 @@
   // Array: [page-31, page-30, ..., page-01, blank]  (32 items)
   // Spread [30,31] = [page-01 LEFT, blank RIGHT] ← opening view
 
-  var ARR_LEN = TOTAL + 1; // 32
-  var START_PAGE = TOTAL - 1; // 30
+  var ARR_LEN = TOTAL + 2; // 33
+  var START_PAGE = TOTAL; // 31
 
   function pageSize() {
     var vh = window.innerHeight - 100;
@@ -242,6 +242,15 @@
     blankImg.alt = '';
     blankDiv.appendChild(blankImg);
     pages.push(blankDiv);
+
+    // Blank page near the start (second to last in reading = index 1, pairs with back cover)
+    var blankDiv2 = document.createElement('div');
+    blankDiv2.className = 'page-content';
+    var blankImg2 = document.createElement('img');
+    blankImg2.src = 'pages/blank.jpg';
+    blankImg2.alt = '';
+    blankDiv2.appendChild(blankImg2);
+    pages.splice(1, 0, blankDiv2);
 
     book.loadFromHTML(pages);
 
