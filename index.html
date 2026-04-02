@@ -42,6 +42,7 @@
       box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
       border-radius: 3px;
       transform: scaleX(-1);
+      visibility: hidden;
     }
 
     .page-content {
@@ -244,6 +245,7 @@
     }
 
     book.loadFromHTML(pages);
+    el.style.visibility = 'visible';
 
     // ─── Loading ───
     const firstImg = pages[0].querySelector('img');
