@@ -173,17 +173,12 @@
   var TOTAL = 31;
   var PW = 850, PH = 1200;
 
-  // Pages are loaded in REVERSE order so that StPageFlip's native
-  // flipPrev (left-to-right) becomes "next page" in Hebrew reading.
-  // A blank page is appended so the front cover lands on the RIGHT
-  // side of its spread (correct for Hebrew).
-  // Array: [page-31(back cover), page-30, ..., page-02, page-01(front cover), blank]
-  // Index:  0                    1             29        30                    31
-  // With showCover, index 0 is a single right cover, index 31 is single left cover.
-  // startPage: 30 → spread [29,30] = [page-02 LEFT, page-01 RIGHT]
+  // Pages in REVERSE order + blank at end so flipPrev = Hebrew "next page".
+  // Array: [page-31, page-30, ..., page-01, blank]  (32 items)
+  // Spread [30,31] = [page-01 LEFT, blank RIGHT] ← opening view
 
-  var ARR_LEN = TOTAL;
-  var START_PAGE = TOTAL - 1;
+  var ARR_LEN = TOTAL + 1; // 32
+  var START_PAGE = TOTAL - 1; // 30
 
   function pageSize() {
     var vh = window.innerHeight - 100;
@@ -214,7 +209,7 @@
       width: size.w,
       height: size.h,
       size: 'fixed',
-      showCover: true,
+      showCover: false,
       maxShadowOpacity: 0.35,
       mobileScrollSupport: false,
       useMouseEvents: true,
@@ -239,6 +234,15 @@
       div.appendChild(img);
       pages.push(div);
     }
+    // Blank page at the end (pairs with front cover)
+    var blankDiv = document.createElement('div');
+    blankDiv.className = 'page-content';
+    var blankImg = document.createElement('img');
+    blankImg.src = 'pages/blank.jpg';
+    blankImg.alt = '';
+    blankDiv.appendChild(blankImg);
+    pages.push(blankDiv);
+
     book.loadFromHTML(pages);
 
     // Loading
